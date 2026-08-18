@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#101c3d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Bitácora PDT" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<title>Bitácora PDT</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#17202b; --sub:#5b6672; --line:#e2e7ec; --navy:#101c3d;
+    --siembra:#b23a72; --mb:#2743a6; --irr:#d8452a; --ok:#0e7c56; --warn:#b45309; --bad:#c2273a;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+  header.top{background:var(--navy); padding:12px 16px;}
+  .wrap{max-width:980px; margin:0 auto;}
+  .topbar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px;}
+  .brand{display:flex; align-items:baseline; gap:12px;}
+  .brand h1{color:#fff; font-family:var(--mono); font-weight:600; letter-spacing:.15em; font-size:13px; margin:0;}
+  .brand span{color:#8fa0c9; font-size:12px;}
+  .tabs{display:flex; gap:8px;}
+  .tab{font-size:12px; padding:6px 14px; border-radius:999px; border:none; cursor:pointer; text-transform:capitalize;}
+  .tab.on{background:#fff; color:var(--navy);}
+  .tab.off{background:rgba(255,255,255,.08); color:#c9d3ea;}
+  main{max-width:980px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:16px;}
+  .datebar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:12px 16px;}
+  .datebar .left, .datebar .right{display:flex; align-items:center; gap:10px;}
+  input[type=date]{border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:14px; font-family:var(--mono);}
+  .btn-mini{font-size:12px; padding:5px 10px; border-radius:6px; border:1px solid var(--line); background:#fbfcfd; cursor:pointer;}
+  .btn-mini:hover{opacity:.8;}
+  .estado{font-size:12px;}
+  .btn-guardar{font-size:14px; padding:7px 18px; border-radius:6px; border:none; color:#fff; font-weight:500; cursor:pointer;}
+  section.panel{border:1px solid var(--line); background:var(--panel); border-radius:12px; overflow:hidden;}
+  .panel > header{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line);}
+  .panel > header .htxt{display:flex; align-items:center; gap:10px;}
+  .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+  .panel h2{font-size:13px; font-weight:600; letter-spacing:.03em; margin:0;}
+  .panel .subt{font-size:12px; color:var(--sub); margin:2px 0 0;}
+  .panel .body{padding:16px;}
+  .row{display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;}
+  .campo{display:flex; flex-direction:column; gap:4px;}
+  .campo span.lbl{font-size:11px; color:var(--sub);}
+  .campo input, .campo select{border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:13px; background:#fbfcfd; font-family:var(--mono);}
+  .campo.nomono input{font-family:inherit;}
+  .campo .suf{font-size:11px; color:var(--sub); margin-left:4px;}
+  .res{display:flex; flex-direction:column;}
+  .res span.lbl{font-size:11px; color:var(--sub);}
+  .res span.val{font-size:14px; font-weight:600; font-family:var(--mono);}
+  .res.big span.val{font-size:20px;}
+  .card{border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; background:#fcfcfd; margin-bottom:8px;}
+  .mix{margin-top:14px; border-radius:8px; padding:12px; display:flex; flex-wrap:wrap; gap:22px; align-items:center;}
+  .mix.siembra{background:#faf2f6; border:1px solid #ecd5e1;}
+  .mix.irr{background:#fdf3f0; border:1px solid #f0d5cc;}
+  .mix .tag{font-size:11px; font-weight:600; letter-spacing:.03em;}
+  .grid24{display:inline-grid; grid-template-columns:repeat(6,minmax(4.4rem,1fr)); gap:8px; padding:16px; border-radius:16px; background:#10151f;}
+  .well{display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .well .circ{width:64px; height:64px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,.25);}
+  .well .wid{font-size:10px; font-weight:700; color:rgba(255,255,255,.85); font-family:var(--mono);}
+  .well input{width:48px; text-align:center; font-size:12px; background:transparent; border:none; outline:none; color:#fff; font-family:var(--mono);}
+  .well input::placeholder{color:rgba(255,255,255,.4);}
+  .well .rv{font-size:9px; color:rgba(255,255,255,.75); font-family:var(--mono);}
+  textarea{width:100%; border:1px solid var(--line); border-radius:6px; padding:8px; font-size:13px; background:#fbfcfd; font-family:inherit;}
+  .cal-head{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; font-size:12px; color:var(--sub); margin-bottom:4px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .cal-cell{border:1px solid var(--line); border-radius:8px; padding:8px 0; display:flex; flex-direction:column; align-items:center; gap:4px; background:#fff; cursor:pointer;}
+  .cal-cell:hover{opacity:.8;}
+  .cal-cell .d{font-size:13px; font-family:var(--mono);}
+  .cal-dot{width:6px; height:6px; border-radius:50%;}
+  .exportcard{display:block; text-align:left; border:1px solid var(--line); border-radius:8px; padding:12px; cursor:pointer; background:#fff;}
+  .exportcard:hover{opacity:.85;}
+  .exportcard .t{font-size:13px; font-weight:500;}
+  .exportcard .d{font-size:12px; color:var(--sub); margin-top:2px;}
+  .x-mini{background:none; border:1px solid var(--line); border-radius:6px; font-size:11px; padding:3px 7px; color:var(--bad); cursor:pointer;}
+  /* ---- celular ---- */
+  @media (max-width: 640px){
+    main{padding:10px; gap:12px;}
+    header.top{padding:10px 12px; padding-top:calc(10px + env(safe-area-inset-top));}
+    .brand span{display:none;}
+    .tab{padding:6px 12px;}
+    .datebar{padding:10px 12px;}
+    .panel .body{padding:12px;}
+    .row{gap:10px;}
+    .card{gap:10px; padding:10px;}
+    .card > div[style*="margin-left:auto"]{margin-left:0 !important; width:100%; border-top:1px dashed var(--line); padding-top:8px;}
+    .mix{gap:14px;}
+    .campo input, .campo select{font-size:16px;} /* evita el zoom automático de iOS al enfocar */
+    .grid24{grid-template-columns:repeat(6,1fr); gap:4px; padding:8px;}
+    .well .circ{width:100%; aspect-ratio:1; max-width:56px; height:auto;}
+    .well input{width:90%; font-size:13px;}
+    .well .wid{font-size:9px;}
+    .well .rv{font-size:8px;}
+    .res span.val{font-size:13px;}
+    .res.big span.val{font-size:17px;}
+    .cal-cell{padding:10px 0;}
+  }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap topbar">
+  <div class="brand"><h1>BITÁCORA · PDT</h1><span>siembra · azul de metileno · biotable — modo offline</span></div>
+  <div class="tabs" id="tabs"></div>
+</div></header>
+<main id="app"></main>
+
+<script>
+"use strict";
+const LSKEY = "bitacora_pdt_offline_v1";
+const WELLS = ["A","B","C","D"].flatMap(r=>[1,2,3,4,5,6].map(c=>r+c));
+const FORMATOS = [
+  {id:"p24", label:"Placa 24 pocillos", vol:"200", unidad:"pocillos"},
+  {id:"p12", label:"Placa 12 pocillos", vol:"500", unidad:"pocillos"},
+  {id:"p6",  label:"Placa 6 pocillos",  vol:"2000", unidad:"pocillos"},
+  {id:"petri90", label:"Petri 90 mm", vol:"9000", unidad:"placas"},
+  {id:"petri60", label:"Petri 60 mm", vol:"4000", unidad:"placas"},
+  {id:"t25", label:"Flask T25", vol:"5000", unidad:"flasks"},
+  {id:"t75", label:"Flask T75", vol:"15000", unidad:"flasks"},
+  {id:"custom", label:"Personalizado", vol:"", unidad:"unidades"},
+];
+
+function hoyISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function num(v){ if(v===""||v===null||v===undefined) return NaN; const n=parseFloat(String(v).replace(",",".")); return Number.isFinite(n)?n:NaN; }
+function fmt(n,d=0){ return Number.isFinite(n) ? n.toLocaleString("es-CL",{maximumFractionDigits:d}) : "—"; }
+function fmtF(n,d=2){ return Number.isFinite(n) ? n.toFixed(d) : "—"; }
+function mmss(s){ if(!Number.isFinite(s)) return "—"; const m=Math.floor(s/60); return m+":"+String(Math.round(s-m*60)).padStart(2,"0")+" min"; }
+function colorIrr(v,min,max){
+  if(!Number.isFinite(v)) return "#eef1f4";
+  const t = max>min ? (v-min)/(max-min) : 0.5;
+  const a=[39,67,166], b=[216,69,42];
+  const mix = a.map((x,i)=>Math.round(x+(b[i]-x)*t));
+  return "rgb("+mix.join(",")+")";
+}
+function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function nuevaMuestra(){ return {nombre:"", modo:"cuadrantes", q:["","","",""], concDirecta:""}; }
+function diaVacio(fecha){
+  return {
+    fecha,
+    siembra:{ fd:"1.5", deseada:"100000", formato:"p24", volPocillo:"200", nPocillos:"24", margen:"2", muestras:[nuevaMuestra()] },
+    mb:{ eps:"62500", verif:[{etiqueta:"",estimada:"",abs:"",fd:"1"}], diluciones:[{etiqueta:"",c1:"",c2:"",v2:""}], correcciones:[{cmed:"",cfin:"",v2:""}] },
+    irr:{ config:"", diam:"0.95", dosis:"9000", valores:Array(24).fill("") },
+    notas:"",
+    updatedAt:null,
+  };
+}
+
+// ---- almacenamiento local (100% offline) ----
+function leerBD(){
+  try{ return JSON.parse(localStorage.getItem(LSKEY)) || {dias:{}}; }
+  catch{ return {dias:{}}; }
+}
+function guardarBD(bd){ localStorage.setItem(LSKEY, JSON.stringify(bd)); }
+function cargarDia(fecha){
+  const bd = leerBD();
+  const base = diaVacio(fecha);
+  const d = bd.dias[fecha];
+  if(!d) return null;
+  return { ...base, ...d, fecha,
+    siembra:{...base.siembra, ...(d.siembra||{})},
+    mb:{...base.mb, ...(d.mb||{})},
+    irr:{...base.irr, ...(d.irr||{})} };
+}
+function guardarDia(dia){
+  const bd = leerBD();
+  bd.dias[dia.fecha] = {...dia, updatedAt:new Date().toISOString()};
+  if(bd.borrados) delete bd.borrados[dia.fecha]; // se volvió a crear: se anula el tombstone
+  guardarBD(bd);
+}
+function borrarDiaBD(fecha){
+  const bd = leerBD();
+  delete bd.dias[fecha];
+  bd.borrados = bd.borrados || {};
+  bd.borrados[fecha] = new Date().toISOString(); // tombstone: evita que reaparezca desde el otro equipo
+  guardarBD(bd);
+}
+function fechasConDatos(){ return Object.keys(leerBD().dias).sort(); }
+
+// ---- cálculos ----
+function calcMuestra(m, fd, deseada){
+  let conc = NaN;
+  if(m.modo==="directo") conc = num(m.concDirecta);
+  else{
+    const qs = m.q.map(num);
+    if(qs.every(Number.isFinite)) conc = (qs.reduce((a,b)=>a+b,0)/4) * num(fd) * 10000;
+  }
+  const vol = (Number.isFinite(conc) && conc>0) ? (num(deseada)*1000)/conc : NaN;
+  return {conc, vol};
+}
+function statsGrid(valores, area){
+  const raw = valores.map(num);
+  const corr = raw.map(v=>Number.isFinite(v)?v/area:NaN);
+  const ok = corr.filter(Number.isFinite);
+  if(!ok.length) return {corr, media:NaN, std:NaN, cv:NaN, n:0};
+  const media = ok.reduce((a,b)=>a+b,0)/ok.length;
+  const std = Math.sqrt(ok.reduce((a,b)=>a+(b-media)**2,0)/ok.length);
+  return {corr, media, std, cv:(100*std)/media, n:ok.length};
+}
+
+// ---- estado de UI ----
+let state = { fecha: hoyISO(), dia: diaVacio(hoyISO()), vista:"registro", estado:"listo", mesCal:(()=>{const d=new Date(); return {y:d.getFullYear(), m:d.getMonth()};})() };
+
+function irAFecha(f){
+  const d = cargarDia(f);
+  state.fecha = f;
+  state.dia = d || diaVacio(f);
+  state.estado = "listo";
+  state.vista = "registro";
+  render();
+}
+function marcar(){ state.estado = "sinGuardar"; }
+function setPath(obj, path, value){
+  const parts = path.split(".");
+  let o = obj;
+  for(let i=0;i<parts.length-1;i++){
+    o = o[isNaN(parts[i+1]) ? parts[i] : parts[i]]; // no-op guard
+  }
+  // simpler: walk
+  o = obj;
+  for(let i=0;i<parts.length-1;i++){ o = o[/^\d+$/.test(parts[i+1]) && Array.isArray(o[parts[i]]) ? parts[i] : parts[i]]; }
+  o[parts[parts.length-1]] = value;
+}
+// robust generic setter using array of keys
+function setDeep(obj, keys, value){
+  let o = obj;
+  for(let i=0;i<keys.length-1;i++) o = o[keys[i]];
+  o[keys[keys.length-1]] = value;
+}
+function getDeep(obj, keys){
+  let o = obj;
+  for(const k of keys) o = o?.[k];
+  return o;
+}
+
+async function guardar(){
+  state.estado = "guardando";
+  render();
+  try{
+    guardarDia(state.dia);
+    state.dia.updatedAt = new Date().toISOString();
+    await escribirRespaldo(); // respaldo automático en carpeta local
+    state.estado = "listo";
+  }catch(e){ state.estado = "error"; }
+  render();
+  sincronizar(true); // sube al Gist en segundo plano; si no hay red, queda pendiente
+}
+function borrarDiaActual(){
+  borrarDiaBD(state.fecha);
+  state.dia = diaVacio(state.fecha);
+  state.estado = "listo";
+  render();
+  sincronizar(true);
+}
+
+// ---- export / import ----
+function descargar(nombre, contenido, tipo){
+  const blob = new Blob([contenido], {type:tipo});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nombre; a.click();
+  URL.revokeObjectURL(url);
+}
+function exportJSON(){
+  const bd = leerBD();
+  const dias = Object.values(bd.dias).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  descargar("bitacora_pdt_"+hoyISO()+".json", JSON.stringify({version:1, exportado:new Date().toISOString(), dias}, null, 2), "application/json");
+}
+function exportCSVirr(){
+  const bd = leerBD();
+  const filas = ["fecha,config,pocillo,lectura_mW,irradiancia_mW_cm2,media_mW_cm2,std,dosis_mJ_cm2,tiempo_s"];
+  Object.values(bd.dias).sort((a,b)=>a.fecha.localeCompare(b.fecha)).forEach(d=>{
+    const a = Math.PI * (num(d.irr.diam)/2)**2;
+    const s = statsGrid(d.irr.valores, a);
+    const t = num(d.irr.dosis)/s.media;
+    d.irr.valores.forEach((v,i)=>{
+      if(!Number.isFinite(num(v))) return;
+      filas.push([d.fecha, '"'+(d.irr.config||"").replace(/"/g,"'")+'"', WELLS[i], num(v), fmtF(num(v)/a,4), fmtF(s.media,4), fmtF(s.std,4), num(d.irr.dosis), fmtF(t,1)].join(","));
+    });
+  });
+  descargar("irradiancias_por_pocillo_"+hoyISO()+".csv", filas.join("\n"), "text/csv");
+}
+function exportCSVmb(){
+  const bd = leerBD();
+  const filas = ["fecha,etiqueta,conc_estimada_uM,abs_664,f_dilucion,conc_medida_uM,dif_pct,epsilon"];
+  Object.values(bd.dias).sort((a,b)=>a.fecha.localeCompare(b.fecha)).forEach(d=>{
+    const eps = num(d.mb.eps);
+    (d.mb.verif||[]).forEach(v=>{
+      const cm = (num(v.abs)/eps)*1e6*num(v.fd);
+      if(!Number.isFinite(cm)) return;
+      const dif = Number.isFinite(num(v.estimada)) ? fmtF(Math.abs(100*(num(v.estimada)-cm)/num(v.estimada)),2) : "";
+      filas.push([d.fecha, '"'+(v.etiqueta||"").replace(/"/g,"'")+'"', num(v.estimada)||"", num(v.abs), num(v.fd), fmtF(cm,3), dif, eps].join(","));
+    });
+  });
+  descargar("mb_espectro_"+hoyISO()+".csv", filas.join("\n"), "text/csv");
+}
+// ═══════════════════════════════════════════════════════════
+// SINCRONIZACIÓN vía Gist privado de GitHub
+// Estrategia: offline-first. Todo se guarda local siempre.
+// Cuando hay red: pull → merge por día (gana el updatedAt más nuevo) → push.
+// Los días borrados dejan "tombstone" para que no reaparezcan desde el otro equipo.
+// ═══════════════════════════════════════════════════════════
+const GH_KEY = "bitacora_pdt_github";
+const GIST_FILE = "bitacora_pdt.json";
+let sync = { estado: "sin-config", hora: null, msg: "" }; // sin-config | ok | sincronizando | offline | error
+
+function ghConf(){
+  try{ return JSON.parse(localStorage.getItem(GH_KEY)) || {}; }catch{ return {}; }
+}
+function ghGuardarConf(c){ localStorage.setItem(GH_KEY, JSON.stringify(c)); }
+function ghListo(){ const c = ghConf(); return !!(c.token && c.gistId); }
+
+async function ghFetch(url, opts={}){
+  const c = ghConf();
+  const r = await fetch(url, {
+    ...opts,
+    headers: {
+      "Authorization": "Bearer " + c.token,
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      ...(opts.headers||{}),
+    },
+  });
+  if(!r.ok) throw new Error("GitHub " + r.status + (r.status===401?" — el token no es válido o expiró":r.status===404?" — no encuentro ese Gist":""));
+  return r.json();
+}
+async function ghPull(){
+  const c = ghConf();
+  const data = await ghFetch("https://api.github.com/gists/" + c.gistId);
+  const f = data.files?.[GIST_FILE];
+  if(!f) return {dias:{}, borrados:{}};
+  let contenido = f.content;
+  if(f.truncated && f.raw_url){ contenido = await (await fetch(f.raw_url)).text(); }
+  try{
+    const j = JSON.parse(contenido);
+    return { dias: j.dias || {}, borrados: j.borrados || {} };
+  }catch{ return {dias:{}, borrados:{}}; }
+}
+async function ghPush(bd){
+  const c = ghConf();
+  await ghFetch("https://api.github.com/gists/" + c.gistId, {
+    method: "PATCH",
+    body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(bd, null, 2) } } }),
+  });
+}
+function mezclar(local, remoto){
+  const borrados = { ...(remoto.borrados||{}), ...(local.borrados||{}) };
+  // para cada fecha borrada en ambos lados, se conserva el tombstone más reciente
+  Object.keys(borrados).forEach(f=>{
+    const a = (local.borrados||{})[f] || "", b = (remoto.borrados||{})[f] || "";
+    borrados[f] = a > b ? a : b;
+  });
+  const dias = { ...(remoto.dias||{}) };
+  Object.entries(local.dias||{}).forEach(([f,d])=>{
+    const r = dias[f];
+    if(!r || (d.updatedAt||"") > (r.updatedAt||"")) dias[f] = d;
+  });
+  // aplicar tombstones: el borrado gana si es posterior a la última edición
+  Object.entries(borrados).forEach(([f,ts])=>{
+    if(dias[f] && (dias[f].updatedAt||"") < ts) delete dias[f];
+  });
+  return { dias, borrados };
+}
+async function sincronizar(silencioso=false){
+  if(!ghListo()){ sync = {estado:"sin-config", hora:sync.hora, msg:""}; if(!silencioso) render(); return; }
+  if(!navigator.onLine){ sync = {estado:"offline", hora:sync.hora, msg:"Sin conexión — se sincroniza sola al recuperar red"}; if(!silencioso) render(); return; }
+  sync = {estado:"sincronizando", hora:sync.hora, msg:""};
+  render();
+  try{
+    const remoto = await ghPull();
+    const local = leerBD();
+    const fusion = mezclar(local, remoto);
+    guardarBD(fusion);
+    await ghPush(fusion);
+    sync = {estado:"ok", hora:new Date(), msg:""};
+    // recargar el día en pantalla por si llegó una versión más nueva desde el otro equipo
+    const recargado = cargarDia(state.fecha);
+    if(recargado && state.estado === "listo") state.dia = recargado;
+  }catch(e){
+    sync = {estado:"error", hora:sync.hora, msg:e.message||"falló la sincronización"};
+  }
+  render();
+}
+async function configurarGitHub(){
+  const actual = ghConf();
+  const token = prompt("Pega tu token de GitHub (fine-grained, con permiso de Gists):", actual.token || "");
+  if(token === null) return;
+  let gistId = prompt("ID del Gist (déjalo vacío y creo uno privado nuevo):", actual.gistId || "");
+  if(gistId === null) return;
+  ghGuardarConf({ token: token.trim(), gistId: (gistId||"").trim() });
+  if(!ghConf().gistId){
+    try{
+      const bd = leerBD();
+      const nuevo = await ghFetch("https://api.github.com/gists", {
+        method: "POST",
+        body: JSON.stringify({
+          description: "Bitácora PDT — datos sincronizados",
+          public: false,
+          files: { [GIST_FILE]: { content: JSON.stringify({dias:bd.dias||{}, borrados:bd.borrados||{}}, null, 2) } },
+        }),
+      });
+      ghGuardarConf({ token: ghConf().token, gistId: nuevo.id });
+      alert("Gist privado creado.\n\nID: " + nuevo.id + "\n\nAnótalo: lo necesitas para configurar el otro dispositivo (celular/PC) y que compartan los mismos datos.");
+    }catch(e){
+      alert("No pude crear el Gist: " + e.message + "\n\nRevisa que el token tenga permiso de lectura y escritura en Gists.");
+      return;
+    }
+  }
+  await sincronizar();
+}
+function textoSync(){
+  const c = ghConf();
+  switch(sync.estado){
+    case "ok": return {txt:"Sincronizado" + (sync.hora?" · "+sync.hora.toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}):""), tone:"var(--ok)"};
+    case "sincronizando": return {txt:"Sincronizando…", tone:"var(--sub)"};
+    case "offline": return {txt:"Sin conexión — los cambios se suben al recuperar red", tone:"var(--warn)"};
+    case "error": return {txt:"Error de sincronización: " + sync.msg, tone:"var(--bad)"};
+    default: return {txt: ghListo()?"Pendiente de sincronizar":"Sincronización sin configurar", tone:"var(--sub)"};
+  }
+}
+
+// gatillos automáticos
+window.addEventListener("online", ()=>sincronizar());
+setInterval(()=>{ if(ghListo() && navigator.onLine) sincronizar(true); }, 5*60*1000);
+
+// ---- respaldo automático en carpeta local (File System Access API) ----
+const IDB_NAME = "bitacora_pdt_backup_db";
+const IDB_STORE = "handles";
+const BACKUP_SOPORTADO = typeof window.showDirectoryPicker === "function";
+let backupDirHandle = null;
+let backupInfo = { modo: "ninguno", hora: null }; // "carpeta" | "descarga" | "ninguno"
+
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function idbSet(key, val){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(IDB_STORE,"readwrite");
+    tx.objectStore(IDB_STORE).put(val, key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(IDB_STORE,"readonly");
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function cargarHandleGuardado(){
+  if(!BACKUP_SOPORTADO) return;
+  try{
+    const h = await idbGet("dir");
+    if(h){
+      const perm = await h.queryPermission({mode:"readwrite"});
+      backupDirHandle = h;
+      if(perm === "granted") backupInfo.modo = "carpeta";
+    }
+  }catch(e){ /* sin handle guardado aún */ }
+}
+async function elegirCarpetaRespaldo(){
+  if(!BACKUP_SOPORTADO){
+    alert("Tu navegador no soporta elegir una carpeta automática (funciona en Chrome/Edge). Se seguirá respaldando por descarga.");
+    return;
+  }
+  try{
+    const h = await window.showDirectoryPicker();
+    const perm = await h.requestPermission({mode:"readwrite"});
+    if(perm !== "granted"){ alert("Sin permiso de escritura, no puedo activar el respaldo automático en esa carpeta."); return; }
+    backupDirHandle = h;
+    await idbSet("dir", h);
+    backupInfo = { modo:"carpeta", hora: backupInfo.hora };
+    render();
+  }catch(e){ /* el usuario canceló el diálogo */ }
+}
+function contenidoRespaldo(){
+  const bd = leerBD();
+  const dias = Object.values(bd.dias).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  return JSON.stringify({version:1, exportado:new Date().toISOString(), dias}, null, 2);
+}
+async function escribirRespaldo(){
+  const contenido = contenidoRespaldo();
+  if(backupDirHandle){
+    try{
+      let perm = await backupDirHandle.queryPermission({mode:"readwrite"});
+      if(perm !== "granted") perm = await backupDirHandle.requestPermission({mode:"readwrite"});
+      if(perm !== "granted") throw new Error("sin permiso");
+      const fileHandle = await backupDirHandle.getFileHandle("bitacora_pdt_backup.json", {create:true});
+      const writable = await fileHandle.createWritable();
+      await writable.write(contenido);
+      await writable.close();
+      backupInfo = { modo:"carpeta", hora:new Date() };
+      return;
+    }catch(e){ /* cae a descarga si falla el permiso/handle */ }
+  }
+  descargar("bitacora_pdt_backup.json", contenido, "application/json");
+  backupInfo = { modo:"descarga", hora:new Date() };
+}
+
+function importJSON(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      const dias = data.dias || [];
+      const bd = leerBD();
+      dias.forEach(d=>{ if(d && d.fecha) bd.dias[d.fecha] = d; });
+      guardarBD(bd);
+      alert("Importados "+dias.length+" días.");
+      render();
+    }catch(e){ alert("El archivo no tiene el formato de la bitácora."); }
+  };
+  reader.readAsText(file);
+}
+
+// ---- render ----
+const app = document.getElementById("app");
+const tabsEl = document.getElementById("tabs");
+
+function renderTabs(){
+  tabsEl.innerHTML = ["registro","calendario","datos"].map(v=>
+    `<button class="tab ${state.vista===v?'on':'off'}" data-vista="${v}">${v}</button>`
+  ).join("");
+  tabsEl.querySelectorAll("[data-vista]").forEach(b=>b.addEventListener("click",()=>{ state.vista=b.dataset.vista; render(); }));
+}
+
+function campoHTML(label, path, value, opts={}){
+  const {w="6.5rem", suf="", mono=true, ph=""} = opts;
+  return `<label class="campo ${mono?'':'nomono'}">
+    <span class="lbl">${esc(label)}</span>
+    <span style="display:flex;align-items:center;gap:4px;">
+      <input data-path="${path}" value="${esc(value)}" placeholder="${esc(ph)}" style="width:${w}" />
+      ${suf?`<span class="suf">${esc(suf)}</span>`:""}
+    </span>
+  </label>`;
+}
+function resHTML(label, value, opts={}){
+  const {tone="", big=false} = opts;
+  return `<div class="res ${big?'big':''}"><span class="lbl">${esc(label)}</span><span class="val" style="${tone?`color:${tone}`:""}">${value}</span></div>`;
+}
+
+function renderRegistro(){
+  const {siembra, mb, irr} = state.dia;
+  const formatoActual = FORMATOS.find(f=>f.id===siembra.formato) || FORMATOS[0];
+  const muestrasCalc = siembra.muestras.map(m=>calcMuestra(m, siembra.fd, siembra.deseada));
+  const volsValidos = muestrasCalc.map(c=>c.vol).filter(v=>Number.isFinite(v)&&v>0);
+  const volProm = volsValidos.length ? Math.round(volsValidos.reduce((a,b)=>a+b,0)/volsValidos.length) : NaN;
+  const volPoc = num(siembra.volPocillo);
+  const complPoc = Number.isFinite(volProm) ? volPoc-volProm : NaN;
+  const nTot = num(siembra.nPocillos) + num(siembra.margen||0);
+  const mmCel = Number.isFinite(volProm) ? volProm*nTot : NaN;
+  const mmMedio = Number.isFinite(complPoc) ? complPoc*nTot : NaN;
+
+  const area = Math.PI * (num(irr.diam)/2)**2;
+  const gs = statsGrid(irr.valores, area);
+  const okVals = gs.corr.filter(Number.isFinite);
+  const minI = okVals.length?Math.min(...okVals):0, maxI = okVals.length?Math.max(...okVals):1;
+  const tiempo = num(irr.dosis)/gs.media;
+
+  const unidadSing = formatoActual.unidad.slice(0,-1) || "u.";
+
+  let html = "";
+  // SIEMBRA
+  html += `<section class="panel">
+    <header><div class="htxt"><span class="dot" style="background:var(--siembra)"></span><div><h2>SIEMBRA / RESEMBRADO</h2><p class="subt">Conc = promedio(Q₁–Q₄) × f.d × 10⁴ · Vol = deseada×1000 / conc</p></div></div>
+    <button class="btn-mini" id="add-muestra">+ muestra</button></header>
+    <div class="body">
+      <div class="row" style="margin-bottom:16px;">
+        <label class="campo">
+          <span class="lbl">Formato</span>
+          <select id="sel-formato">${FORMATOS.map(f=>`<option value="${f.id}" ${f.id===siembra.formato?"selected":""}>${f.label}</option>`).join("")}</select>
+        </label>
+        ${campoHTML("F. dilución","siembra.fd",siembra.fd,{w:"4.5rem"})}
+        ${campoHTML("Deseada / "+unidadSing,"siembra.deseada",siembra.deseada,{w:"6.5rem",suf:"cél"})}
+        ${campoHTML("Vol final","siembra.volPocillo",siembra.volPocillo,{w:"5.5rem",suf:"µL"})}
+        ${campoHTML(formatoActual.unidad==="pocillos"?"Pocillos":formatoActual.unidad==="placas"?"Placas":"Flasks","siembra.nPocillos",siembra.nPocillos,{w:"3.5rem"})}
+        ${campoHTML("Margen (extra)","siembra.margen",siembra.margen,{w:"3.5rem"})}
+      </div>
+      <div id="muestras-list">
+      ${siembra.muestras.map((m,i)=>{
+        const c = muestrasCalc[i];
+        return `<div class="card">
+          ${campoHTML("Muestra","siembra.muestras."+i+".nombre",m.nombre,{w:"7rem",mono:false,ph:"cél "+(i+1)})}
+          <label class="campo"><span class="lbl">Origen</span>
+            <select data-path="siembra.muestras.${i}.modo">
+              <option value="cuadrantes" ${m.modo==="cuadrantes"?"selected":""}>Cuadrantes Neubauer</option>
+              <option value="directo" ${m.modo==="directo"?"selected":""}>Conc directa (contador)</option>
+            </select>
+          </label>
+          ${m.modo==="cuadrantes"
+            ? `<div style="display:flex;gap:6px;">${m.q.map((q,j)=>campoHTML("Q"+(j+1),"siembra.muestras."+i+".q."+j,q,{w:"3.2rem"})).join("")}</div>`
+            : campoHTML("Conc","siembra.muestras."+i+".concDirecta",m.concDirecta,{w:"6.5rem",suf:"cél/mL"})}
+          <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
+            ${resHTML("Conc (cél/mL)", fmt(c.conc))}
+            ${resHTML("Vol a extraer", Number.isFinite(c.vol)?fmt(c.vol,1)+" µL":"—", {tone:"var(--siembra)"})}
+            ${siembra.muestras.length>1?`<button class="x-mini" data-del-muestra="${i}">✕</button>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+      </div>
+      <div class="mix siembra">
+        <span class="tag" style="color:var(--siembra)">MASTER MIX (${fmt(nTot)} ${formatoActual.unidad} incl. margen — ${formatoActual.label})</span>
+        ${resHTML("Células / "+unidadSing, Number.isFinite(volProm)?fmt(volProm)+" µL":"—")}
+        ${resHTML("Medio / "+unidadSing, Number.isFinite(complPoc)?fmt(complPoc)+" µL":"—", {tone:complPoc<0?"var(--bad)":""})}
+        ${resHTML("Células total", Number.isFinite(mmCel)?fmt(mmCel)+" µL":"—", {big:true})}
+        ${resHTML("Medio total", Number.isFinite(mmMedio)?fmt(mmMedio)+" µL":"—", {big:true, tone:mmMedio<0?"var(--bad)":""})}
+        ${complPoc<0 ? `<span style="font-size:12px;color:var(--bad);max-width:22rem;">La suspensión está muy diluida para ${fmt(num(siembra.deseada))} cél en ${fmt(volPoc)} µL — concentra (centrifuga y resuspende en menos volumen) o baja la densidad objetivo.</span>` : ""}
+      </div>
+    </div>
+  </section>`;
+
+  // MB
+  html += `<section class="panel">
+    <header><div class="htxt"><span class="dot" style="background:var(--mb)"></span><div><h2>AZUL DE METILENO</h2><p class="subt">Conc (µM) = A₆₆₄ / ε × 10⁶ × f.d · ε propio en PBS</p></div></div>
+    ${campoHTML("ε (M⁻¹cm⁻¹)","mb.eps",mb.eps,{w:"5rem"})}
+    </header>
+    <div class="body">
+      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:0 0 8px;">VERIFICACIÓN EN ESPECTRO</p>
+      <div id="mb-verif-list">
+      ${mb.verif.map((v,i)=>{
+        const cm = (num(v.abs)/num(mb.eps))*1e6*num(v.fd);
+        const dif = Math.abs(100*(num(v.estimada)-cm)/num(v.estimada));
+        const tone = dif>10?"var(--bad)":dif>5?"var(--warn)":"var(--ok)";
+        return `<div class="card">
+          ${campoHTML("Etiqueta","mb.verif."+i+".etiqueta",v.etiqueta,{w:"8rem",mono:false,ph:"ej: intermedio 5 µM"})}
+          ${campoHTML("Estimada (µM)","mb.verif."+i+".estimada",v.estimada,{w:"5rem"})}
+          ${campoHTML("A₆₆₄","mb.verif."+i+".abs",v.abs,{w:"4.5rem"})}
+          ${campoHTML("f.d cubeta","mb.verif."+i+".fd",v.fd,{w:"3.5rem"})}
+          <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
+            ${resHTML("Medida", Number.isFinite(cm)?fmtF(cm,3)+" µM":"—", {tone:"var(--mb)"})}
+            ${resHTML("Dif", Number.isFinite(dif)?fmtF(dif,1)+" %":"—", {tone})}
+            ${mb.verif.length>1?`<button class="x-mini" data-del-verif="${i}">✕</button>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+      </div>
+      <button class="btn-mini" id="add-verif">+ medición</button>
+
+      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:20px 0 8px;">DILUCIONES · V₁ = C₂·V₂ / C₁</p>
+      <div id="mb-dil-list">
+      ${mb.diluciones.map((v,i)=>{
+        const v1 = (num(v.c2)*num(v.v2))/num(v.c1);
+        const compl = num(v.v2)-v1;
+        return `<div class="card">
+          ${campoHTML("Paso","mb.diluciones."+i+".etiqueta",v.etiqueta,{w:"8rem",mono:false,ph:"ej: stock → 100 µM"})}
+          ${campoHTML("C₁ (µM)","mb.diluciones."+i+".c1",v.c1,{w:"5rem"})}
+          ${campoHTML("C₂ (µM)","mb.diluciones."+i+".c2",v.c2,{w:"5rem"})}
+          ${campoHTML("V₂ (µL)","mb.diluciones."+i+".v2",v.v2,{w:"5rem"})}
+          <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
+            ${resHTML("V₁ stock", Number.isFinite(v1)?fmtF(v1,1)+" µL":"—", {tone:"var(--mb)"})}
+            ${resHTML("Completar", Number.isFinite(compl)?fmtF(compl,1)+" µL":"—", {tone:compl<0?"var(--bad)":""})}
+            ${mb.diluciones.length>1?`<button class="x-mini" data-del-dil="${i}">✕</button>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+      </div>
+      <button class="btn-mini" id="add-dil">+ paso</button>
+
+      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:20px 0 8px;">CORRECCIÓN SEGÚN LO MEDIDO · V₁ = C_final·V₂ / C_medida</p>
+      <div id="mb-corr-list">
+      ${mb.correcciones.map((v,i)=>{
+        const v1 = (num(v.cfin)*num(v.v2))/num(v.cmed);
+        const compl = num(v.v2)-v1;
+        return `<div class="card">
+          ${campoHTML("C medida (µM)","mb.correcciones."+i+".cmed",v.cmed,{w:"5.5rem"})}
+          ${campoHTML("C final (µM)","mb.correcciones."+i+".cfin",v.cfin,{w:"5rem"})}
+          ${campoHTML("V₂ (µL)","mb.correcciones."+i+".v2",v.v2,{w:"5rem"})}
+          <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
+            ${resHTML("V₁ de la medida", Number.isFinite(v1)?fmtF(v1,1)+" µL":"—", {tone:"var(--mb)"})}
+            ${resHTML("Completar", Number.isFinite(compl)?fmtF(compl,1)+" µL":"—", {tone:compl<0?"var(--bad)":""})}
+          </div>
+        </div>`;
+      }).join("")}
+      </div>
+    </div>
+  </section>`;
+
+  // IRRADIANCIA
+  html += `<section class="panel">
+    <header><div class="htxt"><span class="dot" style="background:var(--irr)"></span><div><h2>IRRADIANCIA · BIOTABLE</h2><p class="subt">I = lectura / área sensor · t = dosis / Ī</p></div></div></header>
+    <div class="body">
+      <div class="row" style="margin-bottom:16px;">
+        ${campoHTML("Configuración","irr.config",irr.config,{w:"14rem",mono:false,ph:"ej: potencia normal / 7 parafilm"})}
+        ${campoHTML("Ø sensor","irr.diam",irr.diam,{w:"4rem",suf:"cm"})}
+        ${resHTML("Área", fmtF(area,4)+" cm²")}
+        ${campoHTML("Dosis","irr.dosis",irr.dosis,{w:"5rem",suf:"mJ/cm²"})}
+      </div>
+      <div style="overflow-x:auto;">
+        <div class="grid24">
+        ${WELLS.map((w,i)=>{
+          const v = gs.corr[i];
+          const bg = colorIrr(v,minI,maxI);
+          return `<div class="well">
+            <div class="circ" style="background:${bg}">
+              <span class="wid">${w}</span>
+              <input data-path="irr.valores.${i}" value="${esc(irr.valores[i])}" placeholder="mW" />
+              <span class="rv">${Number.isFinite(v)?fmtF(v,1):""}</span>
+            </div>
+          </div>`;
+        }).join("")}
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--sub);margin-top:6px;">Escribe la lectura del sensor (mW) dentro de cada pocillo; abajo aparece la irradiancia corregida (mW/cm²). El color va de azul (mín) a rojo (máx) del día.</p>
+      <div class="mix irr">
+        ${resHTML("Ī media", Number.isFinite(gs.media)?fmtF(gs.media,2)+" mW/cm²":"—", {big:true, tone:"var(--irr)"})}
+        ${resHTML("σ (pobl.)", fmtF(gs.std,2))}
+        ${resHTML("CV", Number.isFinite(gs.cv)?fmtF(gs.cv,1)+" %":"—", {tone:gs.cv>15?"var(--warn)":"var(--ok)"})}
+        ${resHTML("LEDs medidos", gs.n+" / 24")}
+        ${resHTML("Tiempo iluminación", Number.isFinite(tiempo)?fmtF(tiempo,1)+" s  ("+mmss(tiempo)+")":"—", {big:true})}
+      </div>
+    </div>
+  </section>`;
+
+  // NOTAS
+  html += `<section class="panel">
+    <header><div class="htxt"><span class="dot" style="background:var(--sub)"></span><div><h2>NOTAS DEL DÍA</h2></div></div></header>
+    <div class="body"><textarea id="notas" rows="3" placeholder="Confluencia, pasaje, incidencias, qué placa se usó…">${esc(state.dia.notas)}</textarea></div>
+  </section>`;
+
+  return html;
+}
+
+function renderCalendario(){
+  const {y,m} = state.mesCal;
+  const first = new Date(y,m,1);
+  const start = (first.getDay()+6)%7;
+  const nDias = new Date(y,m+1,0).getDate();
+  const celdas = [];
+  for(let i=0;i<start;i++) celdas.push(null);
+  for(let d=1; d<=nDias; d++) celdas.push(y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"));
+  const nombreMes = first.toLocaleDateString("es-CL",{month:"long",year:"numeric"});
+  const conDatos = fechasConDatos();
+  const hoy = hoyISO();
+
+  return `<section class="panel">
+    <header><div class="htxt"><span class="dot" style="background:var(--navy)"></span><div><h2>CALENDARIO</h2><p class="subt">Los días con punto tienen registro guardado — toca uno para abrirlo</p></div></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn-mini" id="mes-prev">←</button>
+        <span style="font-size:14px;font-weight:500;min-width:10rem;text-align:center;text-transform:capitalize;">${nombreMes}</span>
+        <button class="btn-mini" id="mes-next">→</button>
+      </div>
+    </header>
+    <div class="body">
+      <div class="cal-head">${["Lu","Ma","Mi","Ju","Vi","Sá","Do"].map(d=>`<div>${d}</div>`).join("")}</div>
+      <div class="cal-grid">
+      ${celdas.map(f=>{
+        if(f===null) return "<div></div>";
+        const on = f===state.fecha;
+        return `<button class="cal-cell" data-ir="${f}" style="border-color:${on?"var(--mb)":"var(--line)"};border-width:${on?"2px":"1px"};background:${f===hoy?"#eef2fb":"#fff"}">
+          <span class="d">${parseInt(f.slice(8))}</span>
+          <span class="cal-dot" style="background:${conDatos.includes(f)?"var(--irr)":"transparent"}"></span>
+        </button>`;
+      }).join("")}
+      </div>
+      <p style="font-size:12px;color:var(--sub);margin-top:12px;">${conDatos.length} días con registro en total (guardados en este navegador).</p>
+    </div>
+  </section>`;
+}
+
+function renderDatos(){
+  const c = ghConf();
+  const s = textoSync();
+  const backupTxt = backupInfo.modo==="carpeta"
+    ? "Activo — escribe bitacora_pdt_backup.json en \"" + esc(backupDirHandle?.name||"") + "\" cada vez que guardas un día."
+    : backupInfo.modo==="descarga"
+      ? "Cayendo a descarga manual (elige una carpeta abajo para que deje de acumular archivos en Descargas)."
+      : "Aún no configurado — sin esto, tienes que acordarte de exportar tú mismo.";
+  const backupTone = backupInfo.modo==="carpeta" ? "var(--ok)" : "var(--warn)";
+  return `<section class="panel">
+    <header><div class="htxt"><span class="dot" style="background:var(--mb)"></span><div><h2>SINCRONIZACIÓN PC ↔ CELULAR</h2><p class="subt">Gist privado de GitHub · funciona offline y sube sola al recuperar red</p></div></div></header>
+    <div class="body" style="display:flex;flex-direction:column;gap:10px;max-width:34rem;">
+      <p style="font-size:13px;color:${s.tone};margin:0;">☁ ${s.txt}</p>
+      ${ghListo()
+        ? `<p style="font-size:12px;color:var(--sub);margin:0;">Gist en uso: <code style="font-family:var(--mono)">${esc(c.gistId)}</code> — usa este mismo ID al configurar tu otro dispositivo.</p>`
+        : `<p style="font-size:12px;color:var(--sub);margin:0;">Aún sin configurar. Necesitas un token de GitHub con permiso de Gists.</p>`}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-mini" id="btn-sync-2">${ghListo()?"Sincronizar ahora":"Configurar sincronización"}</button>
+        ${ghListo()?`<button class="btn-mini" id="btn-sync-reconf">Cambiar token / Gist</button>`:""}
+      </div>
+      <p style="font-size:11px;color:var(--sub);margin:0;">Si editas el mismo día en los dos equipos sin conexión, al sincronizar gana la versión guardada más tarde. Días distintos nunca chocan.</p>
+    </div>
+  </section>
+  <section class="panel" style="margin-top:16px;">
+    <header><div class="htxt"><span class="dot" style="background:var(--irr)"></span><div><h2>RESPALDO AUTOMÁTICO LOCAL</h2><p class="subt">Además del Gist — archivo en tu propio disco</p></div></div></header>
+    <div class="body" style="display:flex;flex-direction:column;gap:10px;max-width:34rem;">
+      <p style="font-size:13px;color:${backupTone};margin:0;">${backupTxt}</p>
+      ${BACKUP_SOPORTADO
+        ? `<button class="btn-mini" id="btn-carpeta-2" style="width:fit-content;">${backupInfo.modo==="carpeta"?"Cambiar carpeta de respaldo":"Elegir carpeta de respaldo"}</button>`
+        : `<p style="font-size:12px;color:var(--sub);">En el celular esta función no existe; ahí te cubre la sincronización con el Gist.</p>`}
+    </div>
+  </section>
+  <section class="panel" style="margin-top:16px;">
+    <header><div class="htxt"><span class="dot" style="background:var(--ok)"></span><div><h2>EXPORTAR / IMPORTAR MANUAL</h2><p class="subt">Para cruzar con tu interfaz de conteo</p></div></div></header>
+    <div class="body" style="display:flex;flex-direction:column;gap:10px;max-width:34rem;">
+      <button class="exportcard" id="exp-irr"><div class="t">CSV · irradiancias por pocillo</div><div class="d">Una fila por fecha + pocillo (A1–D6) con lectura, irradiancia, media y tiempo — lista para merge por (fecha, pocillo) con tus conteos en pandas.</div></button>
+      <button class="exportcard" id="exp-mb"><div class="t">CSV · mediciones de MB en espectro</div><div class="d">Fecha, concentración estimada vs medida, dif % y ε usado.</div></button>
+      <button class="exportcard" id="exp-json"><div class="t">JSON · bitácora completa</div><div class="d">Todos los días con todos los módulos.</div></button>
+      <label class="exportcard" style="background:#f7faf8;cursor:pointer;">
+        <div class="t" style="color:var(--ok);">Importar JSON</div>
+        <div class="d">Restaura una bitácora exportada (se sobreescriben los días con la misma fecha).</div>
+        <input type="file" accept=".json" style="display:none" id="imp-json" />
+      </label>
+    </div>
+  </section>`;
+}
+
+function render(){
+  renderTabs();
+  const estadoTxt = {listo:"Guardado", sinGuardar:"Cambios sin guardar", guardando:"Guardando…", error:"Error al guardar — reintenta"}[state.estado];
+  const estadoTone = {listo:"var(--ok)", sinGuardar:"var(--warn)", guardando:"var(--sub)", error:"var(--bad)"}[state.estado];
+
+  let html = "";
+  if(state.vista==="registro"){
+    const tieneDatos = fechasConDatos().includes(state.fecha);
+    const backupTxt = backupInfo.modo==="carpeta"
+      ? "Respaldo automático: ON — carpeta " + (backupDirHandle?.name ? '"'+esc(backupDirHandle.name)+'"' : "elegida")
+      : backupInfo.modo==="descarga"
+        ? "Respaldo automático: por descarga (elige una carpeta para que no acumule archivos)"
+        : "Respaldo automático: sin configurar";
+    const backupTone = backupInfo.modo==="carpeta" ? "var(--ok)" : backupInfo.modo==="descarga" ? "var(--warn)" : "var(--sub)";
+    html += `<div class="datebar">
+      <div class="left">
+        <input type="date" id="date-input" value="${state.fecha}" />
+        <button class="btn-mini" id="btn-hoy">Hoy</button>
+        ${tieneDatos?`<button class="btn-mini" id="btn-borrar" style="color:var(--bad)">Borrar día</button>`:""}
+      </div>
+      <div class="right">
+        <span class="estado" style="color:${estadoTone}">${estadoTxt}</span>
+        <button class="btn-guardar" id="btn-guardar" style="background:${state.estado==="sinGuardar"?"var(--mb)":"#7c8794"}">Guardar día</button>
+      </div>
+    </div>
+    <div class="datebar" style="padding:8px 16px;">
+      <span class="estado" style="color:${textoSync().tone}">☁ ${textoSync().txt}</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="estado" style="color:${backupTone}">${backupTxt}</span>
+        ${BACKUP_SOPORTADO?`<button class="btn-mini" id="btn-carpeta">${backupInfo.modo==="carpeta"?"Cambiar carpeta":"Carpeta de respaldo"}</button>`:""}
+        <button class="btn-mini" id="btn-sync">${ghListo()?"Sincronizar ahora":"Configurar sync"}</button>
+      </div>
+    </div>`;
+    html += renderRegistro();
+  } else if(state.vista==="calendario"){
+    html += renderCalendario();
+  } else {
+    html += renderDatos();
+  }
+  app.innerHTML = html;
+  bind();
+}
+
+function bind(){
+  // date bar
+  const dateInput = document.getElementById("date-input");
+  if(dateInput) dateInput.addEventListener("change", e=>irAFecha(e.target.value));
+  const btnHoy = document.getElementById("btn-hoy");
+  if(btnHoy) btnHoy.addEventListener("click", ()=>irAFecha(hoyISO()));
+  const btnBorrar = document.getElementById("btn-borrar");
+  if(btnBorrar) btnBorrar.addEventListener("click", borrarDiaActual);
+  const btnGuardar = document.getElementById("btn-guardar");
+  if(btnGuardar) btnGuardar.addEventListener("click", guardar);
+  const btnCarpeta = document.getElementById("btn-carpeta");
+  if(btnCarpeta) btnCarpeta.addEventListener("click", elegirCarpetaRespaldo);
+  const btnSync = document.getElementById("btn-sync");
+  if(btnSync) btnSync.addEventListener("click", ()=>{ ghListo() ? sincronizar() : configurarGitHub(); });
+
+  // generic path inputs (siembra/mb/irr fields)
+  app.querySelectorAll("[data-path]").forEach(el=>{
+    el.addEventListener("input", e=>{
+      const keys = el.dataset.path.split(".");
+      setDeep(state.dia, keys, e.target.value);
+      marcar();
+      // re-render but keep focus: only re-render calculated areas is complex; simplest is full render + refocus
+      const path = el.dataset.path;
+      render();
+      const again = app.querySelector(`[data-path="${path}"]`);
+      if(again){ again.focus(); const val = again.value; again.setSelectionRange(val.length, val.length); }
+    });
+  });
+  const selFormato = document.getElementById("sel-formato");
+  if(selFormato) selFormato.addEventListener("change", e=>{
+    const f = FORMATOS.find(x=>x.id===e.target.value);
+    state.dia.siembra.formato = f.id;
+    if(f.id!=="custom") state.dia.siembra.volPocillo = f.vol;
+    marcar(); render();
+  });
+  app.querySelectorAll('select[data-path]').forEach(el=>{
+    el.addEventListener("change", e=>{
+      const keys = el.dataset.path.split(".");
+      setDeep(state.dia, keys, e.target.value);
+      marcar(); render();
+    });
+  });
+
+  // notas
+  const notas = document.getElementById("notas");
+  if(notas) notas.addEventListener("input", e=>{ state.dia.notas = e.target.value; marcar(); });
+
+  // muestras add/del
+  const addM = document.getElementById("add-muestra");
+  if(addM) addM.addEventListener("click", ()=>{ state.dia.siembra.muestras.push(nuevaMuestra()); marcar(); render(); });
+  app.querySelectorAll("[data-del-muestra]").forEach(b=>b.addEventListener("click",()=>{
+    state.dia.siembra.muestras.splice(+b.dataset.delMuestra,1); marcar(); render();
+  }));
+
+  // mb verif
+  const addV = document.getElementById("add-verif");
+  if(addV) addV.addEventListener("click", ()=>{ state.dia.mb.verif.push({etiqueta:"",estimada:"",abs:"",fd:"1"}); marcar(); render(); });
+  app.querySelectorAll("[data-del-verif]").forEach(b=>b.addEventListener("click",()=>{
+    state.dia.mb.verif.splice(+b.dataset.delVerif,1); marcar(); render();
+  }));
+  const addDil = document.getElementById("add-dil");
+  if(addDil) addDil.addEventListener("click", ()=>{ state.dia.mb.diluciones.push({etiqueta:"",c1:"",c2:"",v2:""}); marcar(); render(); });
+  app.querySelectorAll("[data-del-dil]").forEach(b=>b.addEventListener("click",()=>{
+    state.dia.mb.diluciones.splice(+b.dataset.delDil,1); marcar(); render();
+  }));
+
+  // calendario
+  const mp = document.getElementById("mes-prev");
+  if(mp) mp.addEventListener("click", ()=>{ state.mesCal = state.mesCal.m===0?{y:state.mesCal.y-1,m:11}:{y:state.mesCal.y,m:state.mesCal.m-1}; render(); });
+  const mn = document.getElementById("mes-next");
+  if(mn) mn.addEventListener("click", ()=>{ state.mesCal = state.mesCal.m===11?{y:state.mesCal.y+1,m:0}:{y:state.mesCal.y,m:state.mesCal.m+1}; render(); });
+  app.querySelectorAll("[data-ir]").forEach(b=>b.addEventListener("click", ()=>irAFecha(b.dataset.ir)));
+
+  // datos
+  const expIrr = document.getElementById("exp-irr"); if(expIrr) expIrr.addEventListener("click", exportCSVirr);
+  const expMb = document.getElementById("exp-mb"); if(expMb) expMb.addEventListener("click", exportCSVmb);
+  const expJson = document.getElementById("exp-json"); if(expJson) expJson.addEventListener("click", exportJSON);
+  const impJson = document.getElementById("imp-json"); if(impJson) impJson.addEventListener("change", e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); });
+  const btnCarpeta2 = document.getElementById("btn-carpeta-2");
+  if(btnCarpeta2) btnCarpeta2.addEventListener("click", elegirCarpetaRespaldo);
+  const btnSync2 = document.getElementById("btn-sync-2");
+  if(btnSync2) btnSync2.addEventListener("click", ()=>{ ghListo() ? sincronizar() : configurarGitHub(); });
+  const btnReconf = document.getElementById("btn-sync-reconf");
+  if(btnReconf) btnReconf.addEventListener("click", configurarGitHub);
+}
+
+// registro del service worker (permite abrir la app sin internet)
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+// init
+(async ()=>{
+  await cargarHandleGuardado();
+  irAFecha(hoyISO());
+  if(ghListo() && navigator.onLine) sincronizar(true);
+})();
+</script>
+</body>
+</html>
