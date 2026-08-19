@@ -526,6 +526,37 @@ function importJSON(file){
   reader.readAsText(file);
 }
 
+function copiarGrid(tipo){
+  const {irr} = state.dia;
+  const area = Math.PI * (num(irr.diam)/2)**2;
+  const filas = [];
+  for(let f=0; f<4; f++){
+    const fila = [];
+    for(let c=0; c<6; c++){
+      const v = num(irr.valores[f*6+c]);
+      if(!Number.isFinite(v)){ fila.push(""); continue; }
+      fila.push(tipo==="mw" ? String(v) : (v/area).toFixed(4));
+    }
+    filas.push(fila.join("\t"));
+  }
+  const tsv = filas.join("\n");
+  const done = ()=>{
+    const b = document.getElementById(tipo==="mw"?"btn-copy-mw":"btn-copy-irr");
+    if(b){ const t=b.textContent; b.textContent="✓ Copiado"; setTimeout(()=>{b.textContent=t;},1500); }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tsv).then(done).catch(()=>{ copiarFallback(tsv); done(); });
+  } else { copiarFallback(tsv); done(); }
+}
+function copiarFallback(texto){
+  const ta = document.createElement("textarea");
+  ta.value = texto;
+  ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
 // ---- render ----
 const app = document.getElementById("app");
 const tabsEl = document.getElementById("tabs");
@@ -714,6 +745,10 @@ function renderRegistro(){
         </div>
       </div>
       <p style="font-size:12px;color:var(--sub);margin-top:6px;">Escribe la lectura del sensor (mW) dentro de cada pocillo; abajo aparece la irradiancia corregida (mW/cm²). El color va de azul (mín) a rojo (máx) del día.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn-mini" id="btn-copy-irr">Copiar irradiancias 4×6 (mW/cm²)</button>
+        <button class="btn-mini" id="btn-copy-mw">Copiar lecturas 4×6 (mW)</button>
+      </div>
       <div class="mix irr">
         ${resHTML("Ī media", Number.isFinite(gs.media)?fmtF(gs.media,2)+" mW/cm²":"—", {big:true, tone:"var(--irr)"})}
         ${resHTML("σ (pobl.)", fmtF(gs.std,2))}
@@ -906,6 +941,11 @@ function bind(){
   // notas
   const notas = document.getElementById("notas");
   if(notas) notas.addEventListener("input", e=>{ state.dia.notas = e.target.value; marcar(); });
+  // copiar grilla como bloque 4x6
+  const bcIrr = document.getElementById("btn-copy-irr");
+  if(bcIrr) bcIrr.addEventListener("click", ()=>copiarGrid("irr"));
+  const bcMw = document.getElementById("btn-copy-mw");
+  if(bcMw) bcMw.addEventListener("click", ()=>copiarGrid("mw"));
 
   // muestras add/del
   const addM = document.getElementById("add-muestra");
