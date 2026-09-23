@@ -749,7 +749,27 @@ function renderRegistro(){
     ${campoHTML("ε (M⁻¹cm⁻¹)","mb.eps",mb.eps,{w:"5rem"})}
     </header>
     <div class="body">
-      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:0 0 8px;">VERIFICACIÓN EN ESPECTRO</p>
+      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:0 0 8px;">DILUCIONES · V₁ = C₂·V₂ / C₁</p>
+      <div id="mb-dil-list">
+      ${mb.diluciones.map((v,i)=>{
+        const v1 = (num(v.c2)*num(v.v2))/num(v.c1);
+        const compl = num(v.v2)-v1;
+        return `<div class="card">
+          ${campoHTML("Paso","mb.diluciones."+i+".etiqueta",v.etiqueta,{w:"8rem",mono:false,ph:"ej: stock → 100 µM"})}
+          ${campoHTML("C₁ (µM)","mb.diluciones."+i+".c1",v.c1,{w:"5rem"})}
+          ${campoHTML("C₂ (µM)","mb.diluciones."+i+".c2",v.c2,{w:"5rem"})}
+          ${campoHTML("V₂ (µL)","mb.diluciones."+i+".v2",v.v2,{w:"5rem"})}
+          <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
+            ${resHTML("V₁ stock", Number.isFinite(v1)?fmtF(v1,1)+" µL":"—", {tone:"var(--mb)"})}
+            ${resHTML("Completar PBS", Number.isFinite(compl)?fmtF(compl,1)+" µL":"—", {tone:compl<0?"var(--bad)":""})}
+            ${mb.diluciones.length>1?`<button class="x-mini" data-del-dil="${i}">✕</button>`:""}
+          </div>
+        </div>`;
+      }).join("")}
+      </div>
+      <button class="btn-mini" id="add-dil">+ paso</button>
+
+      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:20px 0 8px;">VERIFICACIÓN EN ESPECTRO</p>
       <div id="mb-verif-list">
       ${mb.verif.map((v,i)=>{
         const cm = (num(v.abs)/num(mb.eps))*1e6*num(v.fd);
@@ -770,26 +790,6 @@ function renderRegistro(){
       </div>
       <button class="btn-mini" id="add-verif">+ medición</button>
 
-      <p style="font-size:12px;font-weight:600;color:var(--mb);margin:20px 0 8px;">DILUCIONES · V₁ = C₂·V₂ / C₁</p>
-      <div id="mb-dil-list">
-      ${mb.diluciones.map((v,i)=>{
-        const v1 = (num(v.c2)*num(v.v2))/num(v.c1);
-        const compl = num(v.v2)-v1;
-        return `<div class="card">
-          ${campoHTML("Paso","mb.diluciones."+i+".etiqueta",v.etiqueta,{w:"8rem",mono:false,ph:"ej: stock → 100 µM"})}
-          ${campoHTML("C₁ (µM)","mb.diluciones."+i+".c1",v.c1,{w:"5rem"})}
-          ${campoHTML("C₂ (µM)","mb.diluciones."+i+".c2",v.c2,{w:"5rem"})}
-          ${campoHTML("V₂ (µL)","mb.diluciones."+i+".v2",v.v2,{w:"5rem"})}
-          <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
-            ${resHTML("V₁ stock", Number.isFinite(v1)?fmtF(v1,1)+" µL":"—", {tone:"var(--mb)"})}
-            ${resHTML("Completar", Number.isFinite(compl)?fmtF(compl,1)+" µL":"—", {tone:compl<0?"var(--bad)":""})}
-            ${mb.diluciones.length>1?`<button class="x-mini" data-del-dil="${i}">✕</button>`:""}
-          </div>
-        </div>`;
-      }).join("")}
-      </div>
-      <button class="btn-mini" id="add-dil">+ paso</button>
-
       <p style="font-size:12px;font-weight:600;color:var(--mb);margin:20px 0 8px;">CORRECCIÓN SEGÚN LO MEDIDO · V₁ = C_final·V₂ / C_medida</p>
       <div id="mb-corr-list">
       ${mb.correcciones.map((v,i)=>{
@@ -801,11 +801,13 @@ function renderRegistro(){
           ${campoHTML("V₂ (µL)","mb.correcciones."+i+".v2",v.v2,{w:"5rem"})}
           <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
             ${resHTML("V₁ de la medida", Number.isFinite(v1)?fmtF(v1,1)+" µL":"—", {tone:"var(--mb)"})}
-            ${resHTML("Completar", Number.isFinite(compl)?fmtF(compl,1)+" µL":"—", {tone:compl<0?"var(--bad)":""})}
+            ${resHTML("Completar DMEM", Number.isFinite(compl)?fmtF(compl,1)+" µL":"—", {tone:compl<0?"var(--bad)":""})}
+            ${mb.correcciones.length>1?`<button class="x-mini" data-del-corr="${i}">✕</button>`:""}
           </div>
         </div>`;
       }).join("")}
       </div>
+      <button class="btn-mini" id="add-corr">+ corrección</button>
     </div>
   </section>`;
 
@@ -1046,6 +1048,11 @@ function bind(){
   if(addDil) addDil.addEventListener("click", ()=>{ state.dia.mb.diluciones.push({etiqueta:"",c1:"",c2:"",v2:""}); marcar(); render(); });
   app.querySelectorAll("[data-del-dil]").forEach(b=>b.addEventListener("click",()=>{
     state.dia.mb.diluciones.splice(+b.dataset.delDil,1); marcar(); render();
+  }));
+  const addCorr = document.getElementById("add-corr");
+  if(addCorr) addCorr.addEventListener("click", ()=>{ state.dia.mb.correcciones.push({cmed:"",cfin:"",v2:""}); marcar(); render(); });
+  app.querySelectorAll("[data-del-corr]").forEach(b=>b.addEventListener("click",()=>{
+    state.dia.mb.correcciones.splice(+b.dataset.delCorr,1); marcar(); render();
   }));
 
   // calendario
