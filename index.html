@@ -479,6 +479,18 @@ document.addEventListener("visibilitychange", ()=>{
   else if(ghListo() && navigator.onLine) sincronizar(true); // al volver, baja lo del otro equipo
 });
 window.addEventListener("pagehide", ()=>{ if(tAuto) autoguardar(); });
+// "Siguiente" del teclado: salta al próximo campo (los pocillos van A1→A6, B1→B6…, igual que la placa)
+document.addEventListener("keydown", e=>{
+  const t = e.target;
+  if(!(e.key === "Enter" || e.keyCode === 13)) return;
+  if(!t || !t.matches || !t.matches("input[data-path]")) return;
+  e.preventDefault();
+  const campos = [...document.getElementById("app").querySelectorAll("input[data-path]")]
+    .filter(el => el.offsetParent !== null && !el.disabled);
+  const sig = campos[campos.indexOf(t) + 1];
+  if(sig){ sig.focus(); try{ sig.select(); }catch(err){} }
+  else t.blur(); // último campo: cierra el teclado
+});
 setInterval(()=>{ if(ghListo() && navigator.onLine) sincronizar(true); }, 5*60*1000);
 
 // ---- respaldo automático en carpeta local (File System Access API) ----
@@ -644,7 +656,7 @@ function campoHTML(label, path, value, opts={}){
   return `<label class="campo ${mono?'':'nomono'}">
     <span class="lbl">${esc(label)}</span>
     <span style="display:flex;align-items:center;gap:4px;">
-      <input data-path="${path}" value="${esc(value)}" placeholder="${esc(ph)}" style="width:${w}" ${mono?'inputmode="decimal" autocomplete="off" enterkeyhint="next"':''} />
+      <input data-path="${path}" value="${esc(value)}" placeholder="${esc(ph)}" style="width:${w}" ${mono?'inputmode="decimal"':''} autocomplete="off" enterkeyhint="next" />
       ${suf?`<span class="suf">${esc(suf)}</span>`:""}
     </span>
   </label>`;
