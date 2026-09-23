@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Bitácora PDT" />
-<link rel="manifest" href="manifest.json" />
+<link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <title>Bitácora PDT</title>
 <style>
@@ -573,7 +573,7 @@ function campoHTML(label, path, value, opts={}){
   return `<label class="campo ${mono?'':'nomono'}">
     <span class="lbl">${esc(label)}</span>
     <span style="display:flex;align-items:center;gap:4px;">
-      <input data-path="${path}" value="${esc(value)}" placeholder="${esc(ph)}" style="width:${w}" />
+      <input data-path="${path}" value="${esc(value)}" placeholder="${esc(ph)}" style="width:${w}" ${mono?'inputmode="decimal" autocomplete="off" enterkeyhint="next"':''} />
       ${suf?`<span class="suf">${esc(suf)}</span>`:""}
     </span>
   </label>`;
@@ -587,8 +587,13 @@ function renderRegistro(){
   const {siembra, mb, irr} = state.dia;
   const formatoActual = FORMATOS.find(f=>f.id===siembra.formato) || FORMATOS[0];
   const muestrasCalc = siembra.muestras.map(m=>calcMuestra(m, siembra.fd, siembra.deseada));
-  const volsValidos = muestrasCalc.map(c=>c.vol).filter(v=>Number.isFinite(v)&&v>0);
-  const volProm = volsValidos.length ? Math.round(volsValidos.reduce((a,b)=>a+b,0)/volsValidos.length) : NaN;
+  // Las réplicas estiman la concentración de UN mismo stock: se promedian concentraciones
+  // y el volumen se calcula una sola vez (promediar volúmenes V=k/C sesga hacia arriba).
+  const concs = muestrasCalc.map(c=>c.conc).filter(v=>Number.isFinite(v)&&v>0);
+  const concProm = concs.length ? concs.reduce((a,b)=>a+b,0)/concs.length : NaN;
+  const concSD = concs.length>1 ? Math.sqrt(concs.reduce((a,b)=>a+(b-concProm)**2,0)/(concs.length-1)) : NaN;
+  const concCV = Number.isFinite(concSD) ? 100*concSD/concProm : NaN;
+  const volProm = Number.isFinite(concProm) ? (num(siembra.deseada)*1000)/concProm : NaN;
   const volPoc = num(siembra.volPocillo);
   const complPoc = Number.isFinite(volProm) ? volPoc-volProm : NaN;
   const nTot = num(siembra.nPocillos) + num(siembra.margen||0);
@@ -606,8 +611,8 @@ function renderRegistro(){
   let html = "";
   // SIEMBRA
   html += `<section class="panel">
-    <header><div class="htxt"><span class="dot" style="background:var(--siembra)"></span><div><h2>SIEMBRA / RESEMBRADO</h2><p class="subt">Conc = promedio(Q₁–Q₄) × f.d × 10⁴ · Vol = deseada×1000 / conc</p></div></div>
-    <button class="btn-mini" id="add-muestra">+ muestra</button></header>
+    <header><div class="htxt"><span class="dot" style="background:var(--siembra)"></span><div><h2>SIEMBRA / RESEMBRADO</h2><p class="subt">Cᵢ = promedio(Q₁–Q₄) × f.d × 10⁴ · C̄ = promedio de réplicas · Vol = deseada×1000 / C̄</p></div></div>
+    <button class="btn-mini" id="add-muestra">+ réplica</button></header>
     <div class="body">
       <div class="row" style="margin-bottom:16px;">
         <label class="campo">
@@ -624,7 +629,7 @@ function renderRegistro(){
       ${siembra.muestras.map((m,i)=>{
         const c = muestrasCalc[i];
         return `<div class="card">
-          ${campoHTML("Muestra","siembra.muestras."+i+".nombre",m.nombre,{w:"7rem",mono:false,ph:"cél "+(i+1)})}
+          ${campoHTML("Réplica","siembra.muestras."+i+".nombre",m.nombre,{w:"7rem",mono:false,ph:"réplica "+(i+1)})}
           <label class="campo"><span class="lbl">Origen</span>
             <select data-path="siembra.muestras.${i}.modo">
               <option value="cuadrantes" ${m.modo==="cuadrantes"?"selected":""}>Cuadrantes Neubauer</option>
@@ -636,7 +641,6 @@ function renderRegistro(){
             : campoHTML("Conc","siembra.muestras."+i+".concDirecta",m.concDirecta,{w:"6.5rem",suf:"cél/mL"})}
           <div style="display:flex;gap:16px;margin-left:auto;align-items:flex-end;">
             ${resHTML("Conc (cél/mL)", fmt(c.conc))}
-            ${resHTML("Vol a extraer", Number.isFinite(c.vol)?fmt(c.vol,1)+" µL":"—", {tone:"var(--siembra)"})}
             ${siembra.muestras.length>1?`<button class="x-mini" data-del-muestra="${i}">✕</button>`:""}
           </div>
         </div>`;
@@ -644,10 +648,13 @@ function renderRegistro(){
       </div>
       <div class="mix siembra">
         <span class="tag" style="color:var(--siembra)">MASTER MIX (${fmt(nTot)} ${formatoActual.unidad} incl. margen — ${formatoActual.label})</span>
-        ${resHTML("Células / "+unidadSing, Number.isFinite(volProm)?fmt(volProm)+" µL":"—")}
-        ${resHTML("Medio / "+unidadSing, Number.isFinite(complPoc)?fmt(complPoc)+" µL":"—", {tone:complPoc<0?"var(--bad)":""})}
-        ${resHTML("Células total", Number.isFinite(mmCel)?fmt(mmCel)+" µL":"—", {big:true})}
-        ${resHTML("Medio total", Number.isFinite(mmMedio)?fmt(mmMedio)+" µL":"—", {big:true, tone:mmMedio<0?"var(--bad)":""})}
+        ${resHTML("C̄ (cél/mL)", fmt(concProm))}
+        ${resHTML("CV réplicas", Number.isFinite(concCV)?fmtF(concCV,1)+" %":"—", {tone:concCV>15?"var(--bad)":"var(--ok)"})}
+        ${resHTML("Células / "+unidadSing, Number.isFinite(volProm)?fmt(volProm,1)+" µL":"—", {tone:"var(--siembra)"})}
+        ${resHTML("Medio / "+unidadSing, Number.isFinite(complPoc)?fmt(complPoc,1)+" µL":"—", {tone:complPoc<0?"var(--bad)":""})}
+        ${resHTML("Células total", Number.isFinite(mmCel)?fmt(mmCel,1)+" µL":"—", {big:true})}
+        ${resHTML("Medio total", Number.isFinite(mmMedio)?fmt(mmMedio,1)+" µL":"—", {big:true, tone:mmMedio<0?"var(--bad)":""})}
+        ${concCV>15 ? `<span style="font-size:12px;color:var(--bad);max-width:22rem;">CV entre réplicas &gt; 15 %: conviene un conteo más antes de sembrar.</span>` : ""}
         ${complPoc<0 ? `<span style="font-size:12px;color:var(--bad);max-width:22rem;">La suspensión está muy diluida para ${fmt(num(siembra.deseada))} cél en ${fmt(volPoc)} µL — concentra (centrifuga y resuspende en menos volumen) o baja la densidad objetivo.</span>` : ""}
       </div>
     </div>
@@ -737,7 +744,7 @@ function renderRegistro(){
           return `<div class="well">
             <div class="circ" style="background:${bg}">
               <span class="wid">${w}</span>
-              <input data-path="irr.valores.${i}" value="${esc(irr.valores[i])}" placeholder="mW" />
+              <input data-path="irr.valores.${i}" value="${esc(irr.valores[i])}" placeholder="mW" inputmode="decimal" autocomplete="off" enterkeyhint="next" />
               <span class="rv">${Number.isFinite(v)?fmtF(v,1):""}</span>
             </div>
           </div>`;

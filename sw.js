@@ -2,11 +2,11 @@
 // Guarda la app en caché para que abra sin internet. Los datos NO pasan por aquí:
 // viven en localStorage y se sincronizan aparte contra la API de GitHub.
 // Al publicar una versión nueva de la app, sube el número de CACHE para forzar la actualización.
-const CACHE = "bitacora-pdt-v3";
+const CACHE = "bitacora-pdt-v4";
 const ASSETS = [
   "./",
   "./index.html",
-  "./manifest.json",
+  "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
 ];
