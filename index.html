@@ -168,9 +168,11 @@ function cargarDia(fecha){
 }
 function guardarDia(dia){
   const bd = leerBD();
-  bd.dias[dia.fecha] = {...dia, updatedAt:new Date().toISOString()};
+  const ts = new Date().toISOString();
+  bd.dias[dia.fecha] = {...dia, updatedAt:ts};
   if(bd.borrados) delete bd.borrados[dia.fecha]; // se volvió a crear: se anula el tombstone
   guardarBD(bd);
+  return ts;
 }
 function borrarDiaBD(fecha){
   const bd = leerBD();
@@ -206,6 +208,7 @@ function statsGrid(valores, area){
 let state = { fecha: hoyISO(), dia: diaVacio(hoyISO()), vista:"registro", estado:"listo", mesCal:(()=>{const d=new Date(); return {y:d.getFullYear(), m:d.getMonth()};})() };
 
 function irAFecha(f){
+  if(tAuto) autoguardar(); // antes de cambiar de día, guarda lo pendiente
   const d = cargarDia(f);
   state.fecha = f;
   state.dia = d || diaVacio(f);
@@ -213,7 +216,39 @@ function irAFecha(f){
   state.vista = "registro";
   render();
 }
-function marcar(){ state.estado = "sinGuardar"; }
+// ---- autoguardado: todo cambio se guarda solo, sin depender del botón ----
+let tAuto = null, tSync = null;
+const ESTADO_TXT  = {listo:"Guardado ✓", sinGuardar:"Guardando…", guardando:"Guardando…", error:"Error al guardar — reintenta"};
+const ESTADO_TONE = {listo:"var(--ok)", sinGuardar:"var(--sub)", guardando:"var(--sub)", error:"var(--bad)"};
+function marcar(){
+  state.estado = "sinGuardar";
+  clearTimeout(tAuto);
+  tAuto = setTimeout(autoguardar, 700);
+  actualizarEstadoUI();
+}
+function autoguardar(){
+  clearTimeout(tAuto); tAuto = null;
+  if(state.estado !== "sinGuardar") return;
+  try{
+    state.dia.updatedAt = guardarDia(state.dia);
+    state.estado = "listo";
+  }catch(e){ state.estado = "error"; }
+  actualizarEstadoUI();
+  programarSync();
+}
+function programarSync(){
+  if(!ghListo()) return;
+  clearTimeout(tSync);
+  tSync = setTimeout(()=>sincronizar(true), 4000); // sube unos segundos después de dejar de escribir
+}
+function actualizarEstadoUI(){
+  const e = document.getElementById("estado-guardado");
+  if(e){ e.textContent = ESTADO_TXT[state.estado]; e.style.color = ESTADO_TONE[state.estado]; }
+}
+function actualizarSyncUI(){
+  const e = document.getElementById("sync-estado");
+  if(e){ const t = textoSync(); e.textContent = "☁ " + t.txt; e.style.color = t.tone; }
+}
 function setPath(obj, path, value){
   const parts = path.split(".");
   let o = obj;
@@ -238,11 +273,11 @@ function getDeep(obj, keys){
 }
 
 async function guardar(){
+  clearTimeout(tAuto); tAuto = null;
   state.estado = "guardando";
   render();
   try{
-    guardarDia(state.dia);
-    state.dia.updatedAt = new Date().toISOString();
+    state.dia.updatedAt = guardarDia(state.dia);
     await escribirRespaldo(); // respaldo automático en carpeta local
     state.estado = "listo";
   }catch(e){ state.estado = "error"; }
@@ -250,6 +285,7 @@ async function guardar(){
   sincronizar(true); // sube al Gist en segundo plano; si no hay red, queda pendiente
 }
 function borrarDiaActual(){
+  clearTimeout(tAuto); tAuto = null;
   borrarDiaBD(state.fecha);
   state.dia = diaVacio(state.fecha);
   state.estado = "listo";
@@ -365,11 +401,21 @@ function mezclar(local, remoto){
   });
   return { dias, borrados };
 }
+let sincronizando = false;
+function refrescarTrasSync(soloEstado){
+  if(soloEstado && state.vista==="registro" && document.getElementById("sync-estado")) actualizarSyncUI();
+  else render();
+}
 async function sincronizar(silencioso=false){
-  if(!ghListo()){ sync = {estado:"sin-config", hora:sync.hora, msg:""}; if(!silencioso) render(); return; }
-  if(!navigator.onLine){ sync = {estado:"offline", hora:sync.hora, msg:"Sin conexión — se sincroniza sola al recuperar red"}; if(!silencioso) render(); return; }
+  if(tAuto) autoguardar(); // nunca sincroniza dejando cambios sin guardar
+  clearTimeout(tSync);
+  if(!ghListo()){ sync = {estado:"sin-config", hora:sync.hora, msg:""}; refrescarTrasSync(silencioso); return; }
+  if(!navigator.onLine){ sync = {estado:"offline", hora:sync.hora, msg:"Sin conexión — se sincroniza sola al recuperar red"}; refrescarTrasSync(silencioso); return; }
+  if(sincronizando){ programarSync(); return; }
+  sincronizando = true;
   sync = {estado:"sincronizando", hora:sync.hora, msg:""};
-  render();
+  refrescarTrasSync(true);
+  let cambioDia = false;
   try{
     const remoto = await ghPull();
     const local = leerBD();
@@ -379,11 +425,14 @@ async function sincronizar(silencioso=false){
     sync = {estado:"ok", hora:new Date(), msg:""};
     // recargar el día en pantalla por si llegó una versión más nueva desde el otro equipo
     const recargado = cargarDia(state.fecha);
-    if(recargado && state.estado === "listo") state.dia = recargado;
+    if(recargado && state.estado === "listo" && JSON.stringify(recargado) !== JSON.stringify(state.dia)){
+      state.dia = recargado; cambioDia = true;
+    }
   }catch(e){
     sync = {estado:"error", hora:sync.hora, msg:e.message||"falló la sincronización"};
   }
-  render();
+  sincronizando = false;
+  refrescarTrasSync(silencioso && !cambioDia);
 }
 async function configurarGitHub(){
   const actual = ghConf();
@@ -424,7 +473,12 @@ function textoSync(){
 }
 
 // gatillos automáticos
-window.addEventListener("online", ()=>sincronizar());
+window.addEventListener("online", ()=>sincronizar(true));
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "hidden"){ if(tAuto) autoguardar(); if(ghListo() && navigator.onLine) sincronizar(true); }
+  else if(ghListo() && navigator.onLine) sincronizar(true); // al volver, baja lo del otro equipo
+});
+window.addEventListener("pagehide", ()=>{ if(tAuto) autoguardar(); });
 setInterval(()=>{ if(ghListo() && navigator.onLine) sincronizar(true); }, 5*60*1000);
 
 // ---- respaldo automático en carpeta local (File System Access API) ----
@@ -506,8 +560,25 @@ async function escribirRespaldo(){
       return;
     }catch(e){ /* cae a descarga si falla el permiso/handle */ }
   }
+  // Un navegador nunca puede sobrescribir una descarga (crea "(1)", "(2)"...).
+  // Si la sincronización con el Gist está activa, ese ya es el respaldo: no se descarga nada.
+  if(ghListo()){ backupInfo = { modo:"gist", hora:new Date() }; return; }
   descargar("bitacora_pdt_backup.json", contenido, "application/json");
   backupInfo = { modo:"descarga", hora:new Date() };
+}
+function estadoRespaldo(corto){
+  if(backupInfo.modo==="carpeta") return {
+    txt: corto ? "Respaldo: carpeta " + (backupDirHandle?.name ? '"'+esc(backupDirHandle.name)+'"' : "elegida")
+               : "Activo — sobrescribe bitacora_pdt_backup.json en \"" + esc(backupDirHandle?.name||"") + "\" cada vez que guardas un día.",
+    tone:"var(--ok)" };
+  if(ghListo()) return {
+    txt: corto ? "Respaldo: en la nube (Gist)"
+               : "Cubierto por la sincronización con el Gist: no se descargan copias al guardar." + (BACKUP_SOPORTADO ? " Si quieres además un archivo en tu disco, elige una carpeta." : ""),
+    tone:"var(--ok)" };
+  if(backupInfo.modo==="descarga") return {
+    txt: corto ? "Respaldo: por descarga" : "Sin sync ni carpeta: cada guardado descarga una copia. Configura la sincronización para que deje de hacerlo.",
+    tone:"var(--warn)" };
+  return { txt: corto ? "Respaldo: sin configurar" : "Aún no configurado — configura la sincronización o elige una carpeta.", tone:"var(--warn)" };
 }
 
 function importJSON(file){
@@ -815,12 +886,7 @@ function renderCalendario(){
 function renderDatos(){
   const c = ghConf();
   const s = textoSync();
-  const backupTxt = backupInfo.modo==="carpeta"
-    ? "Activo — escribe bitacora_pdt_backup.json en \"" + esc(backupDirHandle?.name||"") + "\" cada vez que guardas un día."
-    : backupInfo.modo==="descarga"
-      ? "Cayendo a descarga manual (elige una carpeta abajo para que deje de acumular archivos en Descargas)."
-      : "Aún no configurado — sin esto, tienes que acordarte de exportar tú mismo.";
-  const backupTone = backupInfo.modo==="carpeta" ? "var(--ok)" : "var(--warn)";
+  const {txt:backupTxt, tone:backupTone} = estadoRespaldo(false);
   return `<section class="panel">
     <header><div class="htxt"><span class="dot" style="background:var(--mb)"></span><div><h2>SINCRONIZACIÓN PC ↔ CELULAR</h2><p class="subt">Gist privado de GitHub · funciona offline y sube sola al recuperar red</p></div></div></header>
     <div class="body" style="display:flex;flex-direction:column;gap:10px;max-width:34rem;">
@@ -860,19 +926,18 @@ function renderDatos(){
 }
 
 function render(){
+  const ae = document.activeElement;
+  const focoPath = ae && ae.dataset ? ae.dataset.path : null;
+  const focoNotas = ae && ae.id === "notas";
+  let cur = null; try{ cur = ae ? ae.selectionStart : null; }catch(e){}
   renderTabs();
-  const estadoTxt = {listo:"Guardado", sinGuardar:"Cambios sin guardar", guardando:"Guardando…", error:"Error al guardar — reintenta"}[state.estado];
-  const estadoTone = {listo:"var(--ok)", sinGuardar:"var(--warn)", guardando:"var(--sub)", error:"var(--bad)"}[state.estado];
+  const estadoTxt = ESTADO_TXT[state.estado];
+  const estadoTone = ESTADO_TONE[state.estado];
 
   let html = "";
   if(state.vista==="registro"){
     const tieneDatos = fechasConDatos().includes(state.fecha);
-    const backupTxt = backupInfo.modo==="carpeta"
-      ? "Respaldo automático: ON — carpeta " + (backupDirHandle?.name ? '"'+esc(backupDirHandle.name)+'"' : "elegida")
-      : backupInfo.modo==="descarga"
-        ? "Respaldo automático: por descarga (elige una carpeta para que no acumule archivos)"
-        : "Respaldo automático: sin configurar";
-    const backupTone = backupInfo.modo==="carpeta" ? "var(--ok)" : backupInfo.modo==="descarga" ? "var(--warn)" : "var(--sub)";
+    const {txt:backupTxt, tone:backupTone} = estadoRespaldo(true);
     html += `<div class="datebar">
       <div class="left">
         <input type="date" id="date-input" value="${state.fecha}" />
@@ -880,12 +945,12 @@ function render(){
         ${tieneDatos?`<button class="btn-mini" id="btn-borrar" style="color:var(--bad)">Borrar día</button>`:""}
       </div>
       <div class="right">
-        <span class="estado" style="color:${estadoTone}">${estadoTxt}</span>
+        <span class="estado" id="estado-guardado" style="color:${estadoTone}">${estadoTxt}</span>
         <button class="btn-guardar" id="btn-guardar" style="background:${state.estado==="sinGuardar"?"var(--mb)":"#7c8794"}">Guardar día</button>
       </div>
     </div>
     <div class="datebar" style="padding:8px 16px;">
-      <span class="estado" style="color:${textoSync().tone}">☁ ${textoSync().txt}</span>
+      <span class="estado" id="sync-estado" style="color:${textoSync().tone}">☁ ${textoSync().txt}</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="estado" style="color:${backupTone}">${backupTxt}</span>
         ${BACKUP_SOPORTADO?`<button class="btn-mini" id="btn-carpeta">${backupInfo.modo==="carpeta"?"Cambiar carpeta":"Carpeta de respaldo"}</button>`:""}
@@ -900,6 +965,8 @@ function render(){
   }
   app.innerHTML = html;
   bind();
+  const nuevo = focoPath ? app.querySelector(`[data-path="${focoPath}"]`) : (focoNotas ? document.getElementById("notas") : null);
+  if(nuevo){ nuevo.focus(); if(cur !== null){ try{ nuevo.setSelectionRange(cur, cur); }catch(e){} } }
 }
 
 function bind(){
@@ -923,11 +990,7 @@ function bind(){
       const keys = el.dataset.path.split(".");
       setDeep(state.dia, keys, e.target.value);
       marcar();
-      // re-render but keep focus: only re-render calculated areas is complex; simplest is full render + refocus
-      const path = el.dataset.path;
-      render();
-      const again = app.querySelector(`[data-path="${path}"]`);
-      if(again){ again.focus(); const val = again.value; again.setSelectionRange(val.length, val.length); }
+      render(); // render conserva foco y posición del cursor
     });
   });
   const selFormato = document.getElementById("sel-formato");
