@@ -631,6 +631,28 @@ function copiarGrid(tipo){
     navigator.clipboard.writeText(tsv).then(done).catch(()=>{ copiarFallback(tsv); done(); });
   } else { copiarFallback(tsv); done(); }
 }
+// ---- copiar / pegar la sección completa de azul de metileno entre días ----
+const MB_COPIA_KEY = "bitacora_pdt_mb_copiado";
+function leerCopiaMB(){
+  try{ return JSON.parse(localStorage.getItem(MB_COPIA_KEY)); }
+  catch{ return null; }
+}
+function copiarSeccionMB(){
+  const copia = {fecha:state.fecha, mb:JSON.parse(JSON.stringify(state.dia.mb))};
+  localStorage.setItem(MB_COPIA_KEY, JSON.stringify(copia));
+  render();
+  const b = document.getElementById("btn-copy-mb");
+  if(b){ b.textContent="✓ Copiado"; setTimeout(()=>{ b.textContent="Copiar sección"; },1500); }
+}
+function pegarSeccionMB(){
+  const copia = leerCopiaMB();
+  if(!copia || !copia.mb) return;
+  const base = diaVacio(state.fecha).mb;
+  if(JSON.stringify(state.dia.mb) !== JSON.stringify(base) &&
+     !confirm("Este día ya tiene datos de azul de metileno. ¿Reemplazarlos por los del "+copia.fecha+"?")) return;
+  state.dia.mb = {...base, ...JSON.parse(JSON.stringify(copia.mb))};
+  marcar(); render();
+}
 function copiarFallback(texto){
   const ta = document.createElement("textarea");
   ta.value = texto;
@@ -668,6 +690,7 @@ function resHTML(label, value, opts={}){
 
 function renderRegistro(){
   const {siembra, mb, irr} = state.dia;
+  const copiaMB = leerCopiaMB();
   const formatoActual = FORMATOS.find(f=>f.id===siembra.formato) || FORMATOS[0];
   const muestrasCalc = siembra.muestras.map(m=>calcMuestra(m, siembra.fd, siembra.deseada));
   // Las réplicas estiman la concentración de UN mismo stock: se promedian concentraciones
@@ -746,7 +769,11 @@ function renderRegistro(){
   // MB
   html += `<section class="panel">
     <header><div class="htxt"><span class="dot" style="background:var(--mb)"></span><div><h2>AZUL DE METILENO</h2><p class="subt">Conc (µM) = A₆₆₄ / ε × 10⁶ × f.d · ε propio en PBS</p></div></div>
-    ${campoHTML("ε (M⁻¹cm⁻¹)","mb.eps",mb.eps,{w:"5rem"})}
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;justify-content:flex-end;">
+      ${campoHTML("ε (M⁻¹cm⁻¹)","mb.eps",mb.eps,{w:"5rem"})}
+      <button class="btn-mini" id="btn-copy-mb" title="Copia diluciones, verificación y correcciones para pegarlas en otro día">Copiar sección</button>
+      ${copiaMB && copiaMB.fecha!==state.fecha?`<button class="btn-mini" id="btn-paste-mb" title="Pega la sección de azul de metileno copiada">Pegar del ${esc(copiaMB.fecha)}</button>`:""}
+    </div>
     </header>
     <div class="body">
       <p style="font-size:12px;font-weight:600;color:var(--mb);margin:0 0 8px;">DILUCIONES · V₁ = C₂·V₂ / C₁</p>
@@ -1037,6 +1064,12 @@ function bind(){
   app.querySelectorAll("[data-del-muestra]").forEach(b=>b.addEventListener("click",()=>{
     state.dia.siembra.muestras.splice(+b.dataset.delMuestra,1); marcar(); render();
   }));
+
+  // mb copiar / pegar sección
+  const bcMb = document.getElementById("btn-copy-mb");
+  if(bcMb) bcMb.addEventListener("click", copiarSeccionMB);
+  const bpMb = document.getElementById("btn-paste-mb");
+  if(bpMb) bpMb.addEventListener("click", pegarSeccionMB);
 
   // mb verif
   const addV = document.getElementById("add-verif");
